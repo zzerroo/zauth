@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"github.com/zzerroo/zauth/zauth"
-	"github.com/zzerroo/zauth/zauth/util"
+	"github.com/zzerroo/zauth"
+	"github.com/zzerroo/zauth/util"
 )
 
 type casSSO struct {

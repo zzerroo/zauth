@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"github.com/zzerroo/zauth/zauth"
+	"github.com/zzerroo/zauth"
 )
 
 func TestNew(t *testing.T) {

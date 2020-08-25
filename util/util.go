@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 	"unsafe"
-	"zauth/zauth"
+	"github.com/zzerroo/zauth"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"

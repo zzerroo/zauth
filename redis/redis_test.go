@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
-	"github.com/zzerroo/zauth/zauth/util"
+	"github.com/zzerroo/zauth/util"
 )
 
 func getRedis() (*Redis, error) {

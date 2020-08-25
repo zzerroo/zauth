@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	"github.com/zzerroo/zauth/zauth"
+	"github.com/zzerroo/zauth"
 )
 
 // Cache ...
