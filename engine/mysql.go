@@ -6,7 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"time"
-	"github.com/zzerroo/zauth/"
+
+	"github.com/zzerroo/zauth"
 	"github.com/zzerroo/zauth/util"
 
 	_ "github.com/go-sql-driver/mysql"

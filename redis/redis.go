@@ -5,7 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"github.com/zzerroo/zauth/"
+
+	"github.com/zzerroo/zauth"
 
 	redisgo "github.com/garyburd/redigo/redis"
 )
