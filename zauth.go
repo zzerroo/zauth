@@ -2,8 +2,6 @@ package zauth
 
 import (
 	"database/sql"
-	"fmt"
-	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
@@ -129,15 +127,15 @@ func Use(authType, engineType, sessionType string) (Auth, error) {
 }
 
 // GetLoginForm ...
-func GetLoginForm(host string) ([]byte, error) {
-	s, erro := ioutil.ReadFile("./zauth/html/login.html")
-	if erro != nil {
-		return nil, erro
-	}
+// func GetLoginForm(host string) ([]byte, error) {
+// 	// s, erro := ioutil.ReadFile("./zauth/html/login.html")
+// 	// if erro != nil {
+// 	// 	return nil, erro
+// 	// }
 
-	sF := fmt.Sprintf(string(s), host)
-	return []byte(sF), erro
-}
+// 	sF := fmt.Sprintf(string(zauth.LoginTemplate), host)
+// 	return []byte(sF), erro
+// }
 
 // UsrInfo ...
 type UsrInfo struct {

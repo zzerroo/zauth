@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
 	"github.com/zzerroo/zauth"
 	"github.com/zzerroo/zauth/util"
 )
@@ -80,7 +81,7 @@ func (c *casSSO) getQueryValue(r *http.Request, key string, idx int) (string, er
 	}
 
 	if t, ok = queryMap[key]; !ok {
-		return "", zauth.ErrorInputParam
+		return "", zauth.ErrorItemNotFound
 	}
 
 	if len(t) > idx {
@@ -164,61 +165,71 @@ func (c *casSSO) redirect(w http.ResponseWriter, r *http.Request, service, ticke
 	return nil
 }
 
-func (c *casSSO) checkCookieLogin(w http.ResponseWriter, r *http.Request) error {
+func (c *casSSO) IsLogIn(r *http.Request) (string, error) {
 	if r == nil {
-		return zauth.ErrorInputParam
+		return "", zauth.ErrorInputParam
 	}
 
 	tgcCk, erro := r.Cookie(zauth.TGCCookieName)
 	// no cookie
 	if erro != nil {
-		return erro
+		return "", erro
 	}
 
 	// the cookie is nil
 	if tgcCk == nil {
-		return zauth.ErrorItemExists
+		return "", zauth.ErrorItemNotFound
 	}
 
 	tgc := tgcCk.Value
 
-	// check wheather the tgc-tgt pair exist
+	// check whether the tgc-tgt pair exist
 	_, erro = c.session.Get(tgc)
 	if erro != nil {
-		return erro
+		return "", erro
 	}
 
-	service, erro := c.getQueryValue(r, zauth.Service, 0)
-	if erro != nil {
-		return erro
-	}
-
-	// create a new ticket
-	ticket, erro := util.CreateTk(util.HMAC, tgc)
-	if erro != nil {
-		return erro
-	}
-
-	erro = c.redirect(w, r, service, ticket)
-	if erro != nil {
-		return erro
-	}
-
-	return nil
+	return tgc, nil
 }
 
 // LogIn ...
 func (c *casSSO) LogIn(w http.ResponseWriter, r *http.Request) error {
+	// check to show the login form
+	_, erro := c.getQueryValue(r, zauth.Step, 0)
+	if erro != nil {
+		if erro == zauth.ErrorItemNotFound {
+			sF := fmt.Sprintf(zauth.LoginTemplate, "http://127.0.0.1:8080/login")
+			w.Write(util.String2Byte(sF))
+			return nil
+		}
+
+		return erro
+	}
+
+	var name, pswd, flag, service, tgt, ticket string
+	service, erro = c.getQueryValue(r, zauth.Service, 0)
+	if erro != nil {
+		return erro
+	}
+
 	// check the cookie for tgc, if the paired tgt exist in the session,then return
 	// otherwise the user has not logined in
-	erro := c.checkCookieLogin(w, r)
-	if erro == nil {
+	tgc, erro := c.IsLogIn(r)
+	if erro == nil { // already login, create a new ticket,move to client server
+		// create a new ticket
+		ticket, erro = util.CreateTk(util.HMAC, tgc)
+		if erro != nil {
+			return erro
+		}
+
+		erro = c.redirect(w, r, service, ticket)
+		if erro != nil {
+			return erro
+		}
 		return nil
 	}
 
 	// get query param,for name、password、flag、service
-	var name, pswd, flag, service, tgt, tgc string
-
 	name, erro = c.getQueryValue(r, zauth.Name, 0)
 	if erro != nil {
 		return erro
@@ -230,11 +241,6 @@ func (c *casSSO) LogIn(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	flag, erro = c.getQueryValue(r, zauth.Flag, 0)
-	if erro != nil {
-		return erro
-	}
-
-	service, erro = c.getQueryValue(r, zauth.Service, 0)
 	if erro != nil {
 		return erro
 	}
@@ -262,7 +268,7 @@ func (c *casSSO) LogIn(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// create the ticket,use tgc as key
-	ticket, erro := util.CreateTk(util.HMAC, tgc)
+	ticket, erro = util.CreateTk(util.HMAC, tgc)
 	if erro != nil {
 		c.session.Delete(tgc)
 		return zauth.ErrorTkCtr
