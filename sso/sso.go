@@ -1,9 +1,11 @@
 package sso
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -14,9 +16,15 @@ import (
 type casSSO struct {
 	engine  zauth.Engine
 	session zauth.Session
+	ssoHost string
 }
 
 type session struct {
+}
+
+type sessionInfo struct {
+	tgt string
+	u   *zauth.UsrInfo
 }
 
 func init() {
@@ -24,21 +32,25 @@ func init() {
 }
 
 // Open ...
-func (c *casSSO) Open(engineUri, sessionUri string) error {
+func (c *casSSO) Open(engineURI, sessionURI, ssoHost string) error {
 	if c.engine == nil || c.session == nil {
 		return errors.New("")
 	}
 
-	erro := c.engine.Open(engineUri)
+	erro := c.engine.Open(engineURI)
 	if erro != nil {
 		return erro
 	}
 
-	erro = c.session.Open(sessionUri)
+	erro = c.session.Open(sessionURI)
 	if erro != nil {
 		return erro
 	}
 
+	if -1 == strings.Index(ssoHost, "http://") {
+		ssoHost = "http://" + ssoHost
+	}
+	c.ssoHost = ssoHost
 	return nil
 }
 
@@ -51,6 +63,30 @@ func (c *casSSO) Init(engine zauth.Engine, session zauth.Session) error {
 	c.engine = engine
 	c.session = session
 	return nil
+}
+
+func (c *casSSO) getQueryMap(r *http.Request) (url.Values, error) {
+	queryMap := make(map[string][]string)
+
+	if r.Method == http.MethodGet {
+		queryMap = map[string][]string(r.URL.Query())
+	} else if r.Method == http.MethodPost {
+		contentType := r.Header.Get("Content-Type")
+		if contentType == "application/x-www-form-urlencoded" {
+			if erro := r.ParseForm(); erro != nil {
+				return nil, erro
+			}
+			queryMap = r.Form
+		} else if strings.Index(contentType, "multipart/form-data") != -1 {
+			if erro := r.ParseMultipartForm(2048); erro != nil {
+				return nil, erro
+			}
+
+			queryMap = r.PostForm
+		}
+	}
+
+	return queryMap, nil
 }
 
 func (c *casSSO) getQueryValue(r *http.Request, key string, idx int) (string, error) {
@@ -70,7 +106,7 @@ func (c *casSSO) getQueryValue(r *http.Request, key string, idx int) (string, er
 			if erro := r.ParseForm(); erro != nil {
 				return "", erro
 			}
-			queryMap = r.PostForm
+			queryMap = r.Form
 		} else if strings.Index(contentType, "multipart/form-data") != -1 {
 			if erro := r.ParseMultipartForm(2048); erro != nil {
 				return "", erro
@@ -132,44 +168,28 @@ func (c *casSSO) Register(r *http.Request) error {
 	return c.engine.Register(&u)
 }
 
-func (c *casSSO) redirect(w http.ResponseWriter, r *http.Request, service, ticket string) error {
-	if r == nil {
-		return zauth.ErrorInputParam
-	}
-
+func (c *casSSO) getRedirect(service, ticket string) string {
 	if -1 == strings.Index(service, "?") {
 		service = fmt.Sprintf("%s?%s=%s", service, zauth.Ticket, ticket)
 	} else {
 		service = fmt.Sprintf("%s&%s=%s", service, zauth.Ticket, ticket)
 	}
 
-	// if r.Method == http.MethodGet {
-	// 	if -1 == strings.Index(service, "?") {
-	// 		service = fmt.Sprintf("%s?%s=%s", service, zauth.Ticket, ticket)
-	// 	} else {
-	// 		service = fmt.Sprintf("%s&%s=%s", service, zauth.Ticket, ticket)
-	// 	}
-	// } else if r.Method == http.MethodPost {
-	// 	tktCk := &http.Cookie{
-	// 		Name:     zauth.Ticket,
-	// 		Value:    ticket,
-	// 		Domain:   r.URL.Host,
-	// 		Path:     "/",
-	// 		Expires:  time.Now().Add(60 * 60 * time.Second),
-	// 		HttpOnly: true,
-	// 	}
-	// 	http.SetCookie(w, tktCk)
-	// }
-
-	http.Redirect(w, r, service, http.StatusFound)
-	return nil
+	return service
 }
 
-func (c *casSSO) IsLogIn(r *http.Request) (string, error) {
-	if r == nil {
-		return "", zauth.ErrorInputParam
+func (c *casSSO) redirect(w http.ResponseWriter, r *http.Request, service, ticket string) {
+	if -1 == strings.Index(service, "?") {
+		service = fmt.Sprintf("%s?%s=%s", service, zauth.Ticket, ticket)
+	} else {
+		service = fmt.Sprintf("%s&%s=%s", service, zauth.Ticket, ticket)
 	}
 
+	http.Redirect(w, r, service, http.StatusFound)
+	return
+}
+
+func (c *casSSO) AlreadyLogIn(r *http.Request) (string, error) {
 	tgcCk, erro := r.Cookie(zauth.TGCCookieName)
 	// no cookie
 	if erro != nil {
@@ -192,86 +212,94 @@ func (c *casSSO) IsLogIn(r *http.Request) (string, error) {
 	return tgc, nil
 }
 
-// LogIn ...
-func (c *casSSO) LogIn(w http.ResponseWriter, r *http.Request) error {
-	// check to show the login form
-	_, erro := c.getQueryValue(r, zauth.Step, 0)
-	if erro != nil {
-		if erro == zauth.ErrorItemNotFound {
-			sF := fmt.Sprintf(zauth.LoginTemplate, "http://127.0.0.1:8080/login")
-			w.Write(util.String2Byte(sF))
-			return nil
-		}
+func (c *casSSO) firstLogin(querys url.Values) bool {
+	_, ok1 := querys[zauth.Name]
+	_, ok2 := querys[zauth.Passwd]
+	_, ok3 := querys[zauth.Flag]
 
-		return erro
+	if ok1 && ok2 && ok3 {
+		return false
 	}
 
+	return true
+}
+
+func (c *casSSO) LogIn(w http.ResponseWriter, r *http.Request) (info string, erro error) {
 	var name, pswd, flag, service, tgt, ticket string
-	service, erro = c.getQueryValue(r, zauth.Service, 0)
+
+	querys, erro := c.getQueryMap(r)
 	if erro != nil {
-		return erro
+		return
 	}
 
-	// check the cookie for tgc, if the paired tgt exist in the session,then return
-	// otherwise the user has not logined in
-	tgc, erro := c.IsLogIn(r)
-	if erro == nil { // already login, create a new ticket,move to client server
+	if _, ok := querys[zauth.Service]; ok {
+		service = querys[zauth.Service][0]
+	}
+
+	// check whether the user has logged in
+	tgc, erro := c.AlreadyLogIn(r)
+	if erro == nil { //already logged in, create a new ticket
 		// create a new ticket
 		ticket, erro = util.CreateTk(util.HMAC, tgc)
 		if erro != nil {
-			return erro
+			return
 		}
 
-		erro = c.redirect(w, r, service, ticket)
-		if erro != nil {
-			return erro
-		}
-		return nil
+		info = c.getRedirect(service, ticket)
+		return info, zauth.ErrorNeedRedirect
 	}
 
-	// get query param,for name、password、flag、service
-	name, erro = c.getQueryValue(r, zauth.Name, 0)
-	if erro != nil {
-		return erro
+	bLogin := c.firstLogin(querys)
+
+	// first login,return login form
+	if bLogin == true {
+		info = fmt.Sprintf(zauth.LoginTemplate, c.ssoHost+"/login?step=1&service="+service)
+		return info, zauth.ErrorNeedShowForm
 	}
 
-	pswd, erro = c.getQueryValue(r, zauth.Passwd, 0)
-	if erro != nil {
-		return erro
+	// check the login info
+	if _, ok := querys[zauth.Name]; ok {
+		name = querys[zauth.Name][0]
 	}
 
-	flag, erro = c.getQueryValue(r, zauth.Flag, 0)
-	if erro != nil {
-		return erro
+	if _, ok := querys[zauth.Passwd]; ok {
+		pswd = querys[zauth.Passwd][0]
 	}
 
-	_, erro = c.engine.LogIn(name, pswd, flag)
-	if erro != nil {
-		return erro
+	if _, ok := querys[zauth.Flag]; ok {
+		flag = querys[zauth.Flag][0]
 	}
+
+	u, erro := c.engine.LogIn(name, pswd, flag)
+	if erro != nil {
+		return
+	}
+
+	u.Pswd.String = ""
+	seInfo := &sessionInfo{tgt, u}
 
 	//create tgt
 	tgt, erro = util.UUID()
 	if erro != nil {
-		return zauth.ErrorLogIn
+		return
 	}
 	//create tgc
 	tgc, erro = util.UUID()
 	if erro != nil {
-		return erro
+		return
 	}
 
 	//set the tgc-tgt pair to session, the default cookie time is 5mins
-	erro = c.session.Set(tgc, tgt, 300*time.Second)
+	erro = c.session.Set(tgc, seInfo, 300*time.Second)
 	if erro != nil {
-		return zauth.ErrorAddSession
+		return
 	}
 
 	// create the ticket,use tgc as key
 	ticket, erro = util.CreateTk(util.HMAC, tgc)
 	if erro != nil {
 		c.session.Delete(tgc)
-		return zauth.ErrorTkCtr
+		return
 	}
 
 	tgcCk := &http.Cookie{
@@ -284,20 +312,117 @@ func (c *casSSO) LogIn(w http.ResponseWriter, r *http.Request) error {
 	}
 	http.SetCookie(w, tgcCk)
 
-	erro = c.redirect(w, r, service, ticket)
-	if erro != nil {
-		return erro
-	}
-
-	return nil
+	info = c.getRedirect(service, ticket)
+	return
 }
+
+// LogIn ...
+// func (c *casSSO) LogIn2(w http.ResponseWriter, r *http.Request) error {
+// 	var name, pswd, flag, service, tgt, ticket string
+// 	querys, erro := c.getQueryMap(r)
+// 	if erro != nil {
+// 		return erro
+// 	}
+
+// 	if _, ok := querys[zauth.Service]; !ok {
+// 		return zauth.ErrorItemNotFound
+// 	}
+// 	service = querys[zauth.Service][0]
+
+// 	// check to show the login form
+// 	_, erro = c.getQueryValue(r, zauth.Step, 0)
+// 	if erro != nil {
+// 		if erro == zauth.ErrorItemNotFound {
+// 			sF := fmt.Sprintf(zauth.LoginTemplate, c.ssoHost+"/login?step=1&service="+service)
+// 			w.Write(util.String2Byte(sF))
+// 			return nil
+// 		}
+
+// 		return erro
+// 	}
+
+// 	// check the cookie for tgc, if the paired tgt exist in the session,then return
+// 	// otherwise the user has not logined in
+// 	tgc, erro := c.IsLogIn(r)
+// 	if erro == nil { // already login, create a new ticket,move to client server
+// 		// create a new ticket
+// 		ticket, erro = util.CreateTk(util.HMAC, tgc)
+// 		if erro != nil {
+// 			return erro
+// 		}
+
+// 		erro = c.redirect(w, r, service, ticket)
+// 		if erro != nil {
+// 			return erro
+// 		}
+// 		return nil
+// 	}
+
+// 	// get query param,for name、password、flag、service
+// 	name, erro = c.getQueryValue(r, zauth.Name, 0)
+// 	if erro != nil {
+// 		return erro
+// 	}
+
+// 	pswd, erro = c.getQueryValue(r, zauth.Passwd, 0)
+// 	if erro != nil {
+// 		return erro
+// 	}
+
+// 	flag, erro = c.getQueryValue(r, zauth.Flag, 0)
+// 	if erro != nil {
+// 		return erro
+// 	}
+
+// 	_, erro = c.engine.LogIn(name, pswd, flag)
+// 	if erro != nil {
+// 		return erro
+// 	}
+
+// 	//create tgt
+// 	tgt, erro = util.UUID()
+// 	if erro != nil {
+// 		return zauth.ErrorLogIn
+// 	}
+// 	//create tgc
+// 	tgc, erro = util.UUID()
+// 	if erro != nil {
+// 		return erro
+// 	}
+
+// 	//set the tgc-tgt pair to session, the default cookie time is 5mins
+// 	erro = c.session.Set(tgc, tgt, 300*time.Second)
+// 	if erro != nil {
+// 		return zauth.ErrorAddSession
+// 	}
+
+// 	// create the ticket,use tgc as key
+// 	ticket, erro = util.CreateTk(util.HMAC, tgc)
+// 	if erro != nil {
+// 		c.session.Delete(tgc)
+// 		return zauth.ErrorTkCtr
+// 	}
+
+// 	tgcCk := &http.Cookie{
+// 		Name:     zauth.TGCCookieName,
+// 		Value:    tgc,
+// 		Domain:   r.URL.Host,
+// 		Path:     "/",
+// 		Expires:  time.Now().Add(60 * 60 * time.Second),
+// 		HttpOnly: true,
+// 	}
+// 	http.SetCookie(w, tgcCk)
+
+// 	erro = c.redirect(w, r, service, ticket)
+// 	if erro != nil {
+// 		return erro
+// 	}
+
+// 	return nil
+// }
 
 // LogOut ...
 func (c *casSSO) LogOut(w http.ResponseWriter, r *http.Request) error {
-	if r == nil {
-		return zauth.ErrorNullPointer
-	}
-
 	tgcCk, erro := r.Cookie(zauth.TGCCookieName)
 	if erro != nil {
 		return erro
@@ -317,29 +442,36 @@ func (c *casSSO) LogOut(w http.ResponseWriter, r *http.Request) error {
 }
 
 // CheckTk ...
-func (c *casSSO) CheckTk(r *http.Request) error {
-	if r == nil {
-		return zauth.ErrorNullPointer
+func (c *casSSO) CheckTk(r *http.Request) (string, error) {
+	var ticket string
+
+	querys, erro := c.getQueryMap(r)
+	if erro != nil {
+		return "", erro
 	}
 
-	ticket, erro := c.getQueryValue(r, zauth.Ticket, 0)
-	if erro != nil {
-		return erro
+	if _, ok := querys[zauth.Ticket]; ok {
+		ticket = querys[zauth.Ticket][0]
 	}
 
 	// check the sign
 	tgc, erro := util.VerifyTk(ticket)
 	if erro != nil {
-		return erro
+		return "", erro
 	}
 
 	// check the session
-	_, erro = c.session.Get(tgc)
+	info, erro := c.session.Get(tgc)
 	if erro != nil {
-		return erro
+		return "", erro
 	}
 
-	return nil
+	infoBody, erro := json.Marshal(info)
+	if erro != nil {
+		return "", erro
+	}
+
+	return util.Byte2String(infoBody), nil
 }
 
 // CreateTk ...

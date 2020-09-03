@@ -61,23 +61,25 @@ const (
 		 <body style="background-color: #f0f0f0">
 			 <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 			 <div style="position: relative;top: 20%%;margin:0 auto;width:360px;height:400px;">
-					 <form style="height:100%%" action="%s" method="POST">
+					 <form style="height:100%%" action="%s" method="POST" role="form" onsubmit="return true;">
 							 <div id="divBorder" class="form-group divBorder">
 								 <div>
 									 <h1 style="text-align: center;">Name</h1>
 								 </div><br>
 								 <div class="form-group">
-									 <input type="email" class="form-control" id="email" placeholder="Name">
+									 <input type="email" class="form-control" id="email" name="name" placeholder="邮箱">
+									 <input type="hidden" class="form-control" id="flag" name="flag" value="2">
 								 </div>
 								 <div class="form-group">
-									 <input type="password" class="form-control" id="inputPassword3" placeholder="Password">
+									 <input type="password" class="form-control" id="password" name="password" placeholder="密码">
 								 </div>
 								 <div class="form-group">
 									 <label><input type="checkbox"> Remember me</label>
 								 </div>
 								 <div class="form-group">
-									 <button width="100%" type="submit" class="btn btn-primary btn-block">Sign in</button>
+									 <button width="100%" type="submit" class="btn btn-primary btn-block">登录</button>
 								 </div>
+								 
 							 </div>
 					 </form>
 			 </div>

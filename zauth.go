@@ -16,11 +16,11 @@ var (
 
 // Auth ...
 type Auth interface {
-	Open(string, string) error
+	Open(string, string, string) error
 	Init(Engine, Session) error
-	LogIn(http.ResponseWriter, *http.Request) error
-	LogOut(w http.ResponseWriter, r *http.Request) error
-	CheckTk(r *http.Request) error
+	LogIn(http.ResponseWriter, *http.Request) (string, error)
+	LogOut(http.ResponseWriter, *http.Request) error
+	CheckTk(*http.Request) (string, error)
 	CreateTk(*UsrInfo)
 	RefreshTk()
 	Register(*http.Request) error

@@ -26,4 +26,8 @@ var (
 	ErrorCalPwd            = errors.New("error cal pswd")
 	ErrorSign              = errors.New("error sign")
 	ErrorTkAlgNotSupported = errors.New("error alg not supported")
+
+	//
+	ErrorNeedRedirect = errors.New("error need redirect")
+	ErrorNeedShowForm = errors.New("error need show form")
 )

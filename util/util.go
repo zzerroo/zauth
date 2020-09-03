@@ -9,9 +9,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 	"unsafe"
+
 	"github.com/zzerroo/zauth"
 
 	"github.com/google/uuid"
@@ -190,4 +192,14 @@ func VerifyTk(ticket string) (string, error) {
 	}
 
 	return payLoads[0], nil
+}
+
+// GetReqURL ...
+func GetReqURL(r *http.Request) string {
+	scheme := "http://"
+	if r.TLS != nil {
+		scheme = "https://"
+	}
+
+	return strings.Join([]string{scheme, r.Host, r.RequestURI}, "")
 }

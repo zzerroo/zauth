@@ -112,7 +112,7 @@ func (m *mysql) GetUsrInfo(info, flag string) (*zauth.UsrInfo, error) {
 	} else if flag == zauth.FlagPhone {
 		sql = fmt.Sprintf("select name,pswd,phone,email,other from users where phone=?")
 	} else if flag == zauth.FlagEamil {
-		sql = fmt.Sprintf("select name,pswd,phone,email,other from users where eamil=?")
+		sql = fmt.Sprintf("select name,pswd,phone,email,other from users where email=?")
 	}
 
 	row := m.db.QueryRow(sql, info)
