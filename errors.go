@@ -6,6 +6,7 @@ var (
 	// Common error
 	ErrorInputParam  = errors.New("error input param")
 	ErrorNullPointer = errors.New("error null pointer")
+	ErrorPattern     = errors.New("error bad pattern")
 
 	// Error about session and so on
 	ErrorAddSession   = errors.New("error add session")
@@ -30,4 +31,7 @@ var (
 	//
 	ErrorNeedRedirect = errors.New("error need redirect")
 	ErrorNeedShowForm = errors.New("error need show form")
+
+	//
+	ErrorUnknown = errors.New("error unknow")
 )

@@ -105,3 +105,39 @@ func TestVerifyTk(t *testing.T) {
 
 	t.Log("ok")
 }
+
+func TestPasswd(t *testing.T) {
+	badPswds := [...]string{"12345", "abcd", "ABCD", "123abcABC", "123abc"}
+	for _, pswd := range badPswds {
+		erro := CheckPsswd(pswd)
+		if erro == nil {
+			t.Error("bad result: " + pswd)
+		}
+	}
+
+	okPswds := [...]string{"12345abcZdd!", "@Abc123", "##@@@xddd1233ZZZ", "z@ZIIIIII", "xxxxXXXX1111!!!!!"}
+	for _, pswd := range okPswds {
+		erro := CheckPsswd(pswd)
+		if erro != nil {
+			t.Error("bad result: " + pswd)
+		}
+	}
+}
+
+func TestEmail(t *testing.T) {
+	badEmails := [...]string{"123", "123abc", "xxx#xxx.com", "123abc$xxx.cn", "!@#", "@xxx.com"}
+	for _, email := range badEmails {
+		erro := CheckEmail(email)
+		if erro == nil {
+			t.Error("bad result: " + email)
+		}
+	}
+
+	okEmails := [...]string{"xxx@163.com", "abc_123@126.com", "abc.cde2@qq.com", "abc-123@baidu.com"}
+	for _, email := range okEmails {
+		erro := CheckEmail(email)
+		if erro != nil {
+			t.Error("bad result: " + email)
+		}
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
 	"github.com/zzerroo/zauth"
 )
 
@@ -32,7 +33,7 @@ func (c *Cache) Init() {
 	return
 }
 
-// Open ...
+// Open the cache
 func (c *Cache) Open(td ...interface{}) error {
 	c.items = make(map[interface{}]item, 1000)
 	c.stop = make(chan struct{})
@@ -46,7 +47,7 @@ func (c *Cache) Open(td ...interface{}) error {
 	return nil
 }
 
-// New ...
+// New create a new Cache{}
 func New(td time.Duration) *Cache {
 	c := &Cache{
 		items: make(map[interface{}]item, 1000),
@@ -57,7 +58,7 @@ func New(td time.Duration) *Cache {
 	return c
 }
 
-// Set ...
+// Set the k:d to the cache, with a du expiration time
 func (c *Cache) Set(k interface{}, d interface{}, du time.Duration) error {
 	tm := time.Now()
 	fmt.Printf("%s\n%s\n", tm.Format("2006-01-02 15:04:05"), tm.Add(du).Format("2006-01-02 15:04:05"))
@@ -70,7 +71,11 @@ func (c *Cache) Set(k interface{}, d interface{}, du time.Duration) error {
 	return nil
 }
 
-// Get ...
+// Get the value with k
+// Return Value:
+//	ErrorItemNotFound item not found in the cache
+//	ErrorItemExpired has expired
+//	nil success
 func (c *Cache) Get(k interface{}) (interface{}, error) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
@@ -81,7 +86,6 @@ func (c *Cache) Get(k interface{}) (interface{}, error) {
 	}
 
 	i = c.items[k]
-	fmt.Printf("%s\n%s ", time.Now().Format("2006-01-02 15:04:05"), i.expireAt.Format("2006-01-02 15:04:05"))
 	if time.Now().After(i.expireAt) {
 		return nil, zauth.ErrorItemExpired
 	}
@@ -89,7 +93,7 @@ func (c *Cache) Get(k interface{}) (interface{}, error) {
 	return i.data, nil
 }
 
-// Delete ...
+// Delete the pair with the key k
 func (c *Cache) Delete(k interface{}) error {
 	c.mut.Lock()
 	delete(c.items, k)
@@ -98,7 +102,7 @@ func (c *Cache) Delete(k interface{}) error {
 	return nil
 }
 
-// Clear ...
+// Clear delete all pairs
 func (c *Cache) Clear() error {
 	close(c.stop)
 
@@ -108,7 +112,7 @@ func (c *Cache) Clear() error {
 	return nil
 }
 
-// Keys ...
+// Keys get all keys from the cache
 func (c *Cache) Keys() ([]interface{}, error) {
 	c.mut.RLock()
 	tm := time.Now()
@@ -123,7 +127,7 @@ func (c *Cache) Keys() ([]interface{}, error) {
 	return keys, nil
 }
 
-// Values ...
+// Values get all values
 func (c *Cache) Values() ([]interface{}, error) {
 	c.mut.RLock()
 	values := make([]interface{}, 0, 0)
@@ -137,7 +141,7 @@ func (c *Cache) Values() ([]interface{}, error) {
 	return values, nil
 }
 
-// DelExpiredItem ...
+// DelExpiredItem del the expired item
 func (c *Cache) delExpiredItem() {
 	c.mut.Lock()
 	now := time.Now()
@@ -149,6 +153,7 @@ func (c *Cache) delExpiredItem() {
 	c.mut.Unlock()
 }
 
+// start a ticker for del the expired item
 func (c *Cache) dispatch(td time.Duration) {
 	c.tk = time.NewTicker(td)
 	select {
@@ -165,19 +170,3 @@ func (c *Cache) dispatch(td time.Duration) {
 		}
 	}
 }
-
-// func (d *Deleter)Init(,td time.Duration) {
-// 	d.tk := time.NewTicker(td)
-// 	go d.dispatch()
-// 	return
-// }
-
-// func (d *Deleter)start(td time.Duration) {
-// 	d.tk := time.NewTicker(td)
-// 	go d.dispatch()
-// 	return
-// }
-
-// func (d *Deleter) clear() {
-
-// }

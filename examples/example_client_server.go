@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -53,8 +54,8 @@ func (m *myHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func main() {
-	erro := session.Open("redis://:xxxx@127.0.0.1:/?active=21&idle=15&itimeout=2")
+func main1() {
+	erro := session.Open("redis://:zyx1987@117.51.159.208:6379/?active=21&idle=15&itimeout=2")
 	if erro != nil {
 		log.Fatal("error open redis session,for :" + erro.Error())
 	}
@@ -96,6 +97,9 @@ func (m *myHandler) checkTicket(w http.ResponseWriter, r *http.Request) error {
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("error unkown")
 		}
+
+		buf, _ := ioutil.ReadAll(resp.Body)
+		fmt.Printf("%s\n", string(buf))
 
 		key, _ := zUtil.UUID()
 		value, _ := zUtil.UUID()

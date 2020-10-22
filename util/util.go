@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 	"unsafe"
@@ -88,6 +89,61 @@ func getAlgIdx(alg string) (string, error) {
 		return "0001", nil
 	}
 	return "", zauth.ErrorTkAlgNotSupported
+}
+
+// CheckPsswd check for the pswd string, for :
+//		1. length >= 8
+//		2. at least 3 kinds of characters, including num、lower case letter、
+//			cap case letter、special characters and so on
+func CheckPsswd(pswd string) error {
+	if len(pswd) <= 7 {
+		return zauth.ErrorPattern
+	}
+
+	num := `[0-9]+`
+	low := `[a-z]+`
+	cap := `[A-Z]+`
+	sym := `[!@#~$%^&*()+|_]+`
+
+	accordRules := 4
+
+	if accord, erro := regexp.MatchString(num, pswd); !accord || erro != nil {
+		accordRules--
+	}
+
+	if accord, erro := regexp.MatchString(low, pswd); !accord || erro != nil {
+		accordRules--
+	}
+
+	if accord, erro := regexp.MatchString(cap, pswd); !accord || erro != nil {
+		accordRules--
+	}
+
+	if accord, erro := regexp.MatchString(sym, pswd); !accord || erro != nil {
+		accordRules--
+	}
+
+	if accordRules <= 2 {
+		return zauth.ErrorPattern
+	}
+
+	return nil
+}
+
+// CheckEmail check the email pattern,for :
+//	1.before @
+//		start with num and character,only can inlude -、_、.
+//	2.after @
+//		num and character, . ,num and character
+func CheckEmail(email string) error {
+	pattern := `^[0-9a-z][\-_.0-9a-z]{0,31}@[0-9a-z]{1,20}\.[a-z]{2,4}$`
+	b, erro := regexp.MatchString(pattern, email)
+
+	if erro != nil || !b {
+		return zauth.ErrorPattern
+	}
+
+	return nil
 }
 
 // CreateTk create a new ticket, use the alg algorithm, with a static key
@@ -202,4 +258,14 @@ func GetReqURL(r *http.Request) string {
 	}
 
 	return strings.Join([]string{scheme, r.Host, r.RequestURI}, "")
+}
+
+// GetReqHost ...
+func GetReqHost(r *http.Request) string {
+	scheme := "http://"
+	if r.TLS != nil {
+		scheme = "https://"
+	}
+
+	return strings.Join([]string{scheme, r.Host}, "")
 }

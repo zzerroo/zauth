@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
 	"github.com/zzerroo/zauth/util"
 )
 
 func getRedis() (*Redis, error) {
-	return NewRedis(&RedisInfo{"tcp", "117.51.159.208", 6379, "zyx1987", -1, 10, 10, 10})
+	return NewRedis(&RedisInfo{"tcp", "127.0.0.1", 6379, "xxxx", -1, 10, 10, 10})
 }
 
 func TestRedisOpen(t *testing.T) {
@@ -154,7 +155,7 @@ func TestRedisParse(t *testing.T) {
 		t.Errorf("error create a redis, error: " + erro.Error())
 	}
 
-	url := "redis://user:secret@localhost:6379/0?active=10&idle=5&itimeout=2"
+	url := "redis://user:xxxx@127.0.0.1:6379/0?active=10&idle=5&itimeout=2"
 
 	redisInfo, erro := r.parseUrl(url)
 	if erro != nil {
@@ -163,7 +164,7 @@ func TestRedisParse(t *testing.T) {
 
 	if redisInfo.DB != 0 ||
 		redisInfo.Psswd != "secret" ||
-		redisInfo.Host != "localhost" ||
+		redisInfo.Host != "127.0.0.1" ||
 		redisInfo.Port != 6379 ||
 		redisInfo.MaxActive != 10 ||
 		redisInfo.MacxIdle != 5 ||

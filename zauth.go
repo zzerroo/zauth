@@ -1,7 +1,6 @@
 package zauth
 
 import (
-	"database/sql"
 	"net/http"
 	"sync"
 	"time"
@@ -14,27 +13,41 @@ var (
 	sessions = make(map[string]Session)
 )
 
-// Auth ...
+// Auth include all auth func
 type Auth interface {
-	Open(string, string, string) error
+	// Open the engine、session and do some init operation
+	Open(string, string) error
+
+	// Set the Engine and Session for the implemention of auth
 	Init(Engine, Session) error
+
+	// LogIn to the service
 	LogIn(http.ResponseWriter, *http.Request) (string, error)
+
+	// LogOut the service
 	LogOut(http.ResponseWriter, *http.Request) error
+
+	// CheckTk check the ticket from the service
 	CheckTk(*http.Request) (string, error)
-	CreateTk(*UsrInfo)
+
+	// RefreshTk create a new ticket
 	RefreshTk()
-	Register(*http.Request) error
+
+	// Register a new user
+	Register(*http.Request) (string, error)
 }
 
-// Engine ...
+// Engine is the  data management system, it is be responsible for
+//	user info store、query、update and so on
 type Engine interface {
+	// Open the connections to the server(db)
 	Open(string) error
 	Register(*UsrInfo) error
 	LogIn(string, string, string) (*UsrInfo, error)
 	GetUsrInfo(string, string) (*UsrInfo, error)
 }
 
-// Session ...
+// Session is the session management
 type Session interface {
 	Init()
 	Open(...interface{}) error
@@ -43,11 +56,8 @@ type Session interface {
 	Delete(interface{}) error
 }
 
-// init ...
-func init() {
-}
-
-// RegisterAuth ...
+// RegisterAuth register the name:auth pair to the the auth system
+//	currently there is only one implemention: zauth.SSOAuth:&casSSO{}
 func RegisterAuth(name string, auth Auth) {
 	mut.Lock()
 	defer mut.Unlock()
@@ -63,7 +73,8 @@ func RegisterAuth(name string, auth Auth) {
 	auths[name] = auth
 }
 
-// RegisterEngine ...
+// RegisterEngine register the name:engine pair implemention to the auth system
+//	currently the map only include zauth.MySqlEngine:&mysql{} implemention
 func RegisterEngine(name string, engine Engine) {
 	mut.Lock()
 	defer mut.Unlock()
@@ -79,7 +90,8 @@ func RegisterEngine(name string, engine Engine) {
 	engines[name] = engine
 }
 
-// RegisterSession ...
+// RegisterSession register the name:session pair implemention the auth system
+//	there are 2 pairs,zauth.CacheSession:&Cache{}、zauth.CacheRedis, &Redis{}
 func RegisterSession(name string, session Session) {
 	mut.Lock()
 	defer mut.Unlock()
@@ -95,12 +107,11 @@ func RegisterSession(name string, session Session) {
 	sessions[name] = session
 }
 
-// UnRegister ...
+// UnRegister no use
 func UnRegister() {
-
 }
 
-// Use ...
+// Use declare the used auth type、the engine type、the session type
 func Use(authType, engineType, sessionType string) (Auth, error) {
 	var engine Engine
 	var auth Auth
@@ -126,23 +137,12 @@ func Use(authType, engineType, sessionType string) (Auth, error) {
 	return auth, nil
 }
 
-// GetLoginForm ...
-// func GetLoginForm(host string) ([]byte, error) {
-// 	// s, erro := ioutil.ReadFile("./zauth/html/login.html")
-// 	// if erro != nil {
-// 	// 	return nil, erro
-// 	// }
-
-// 	sF := fmt.Sprintf(string(zauth.LoginTemplate), host)
-// 	return []byte(sF), erro
-// }
-
 // UsrInfo ...
 type UsrInfo struct {
-	Name  sql.NullString `db:name`
-	Pswd  sql.NullString `db:pswd`
-	Phone sql.NullString `db:phone`
-	Email sql.NullString `db:email`
-	Other sql.NullString `db:other`
-	IV    sql.NullString `db:iv`
+	Name  string `json:name`
+	Pswd  string `json:"-"`
+	Phone string `json:phone`
+	Email string `json:email`
+	Other string `json:other`
+	IV    string `json:"-"`
 }

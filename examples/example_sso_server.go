@@ -18,9 +18,8 @@ func main() {
 	if erro != nil {
 		log.Fatalf("error zauth use,info:" + erro.Error())
 	}
-	auth.Open("root:xxx@tcp(128.0.0.1:3306)/auth?charset=utf8",
-		"redis://:xxx@127.0.0.1:/?active=21&idle=15&itimeout=2",
-		"http://127.0.0.1:8081")
+	auth.Open("root:xxxx@tcp(127.0.0.1:3306)/auth?charset=utf8",
+		"redis://:xxxx@127.0.0.1:/?active=21&idle=15&itimeout=2")
 
 	http.HandleFunc("/login", loginServerSSO)
 	http.HandleFunc("/register", register)
@@ -30,26 +29,40 @@ func main() {
 
 func loginServerSSO(w http.ResponseWriter, r *http.Request) {
 	retInfo, erro := auth.LogIn(w, r)
-	if erro == zauth.ErrorNeedShowForm { // first,show login from
+	if erro == zauth.ErrorNeedShowForm {
+		// first,show login from
+
 		w.Write([]byte(retInfo))
 		return
-	} else if erro == zauth.ErrorNeedRedirect { // the session exist, alerady loged in
+	} else if erro == zauth.ErrorNeedRedirect {
+		// the session exist, alerady loged in
+
 		http.Redirect(w, r, retInfo, http.StatusTemporaryRedirect)
 		return
 	} else if erro != nil {
+		// error ocurs
+
 		w.Write([]byte(erro.Error()))
 		return
 	}
 
-	// log in successed
+	// auth ok, redirect to prev pages
+	r = new(http.Request)
 	http.Redirect(w, r, retInfo, http.StatusTemporaryRedirect)
 	return
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
-	erro := auth.Register(r)
-	if erro != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	info, erro := auth.Register(r)
+	if erro == nil {
+		// register ok
+
+		w.Write([]byte("ok"))
+	} else if erro == zauth.ErrorNeedShowForm {
+		// show the sign up page
+		w.Write([]byte(info))
+	} else {
+		w.Write([]byte(erro.Error()))
 	}
 
 	w.WriteHeader(http.StatusOK)

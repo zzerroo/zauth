@@ -3,7 +3,6 @@ package mysql
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/zzerroo/zauth"
@@ -24,13 +23,13 @@ func init() {
 	zauth.RegisterEngine(zauth.MySqlEngine, &mysql{})
 }
 
+// Open the conn and set the init param
 func (m *mysql) Open(dbDSN string) error {
 	db, erro := sql.Open(MySql, dbDSN)
 	if erro != nil {
 		panic("error open db: " + erro.Error())
 	}
 
-	log.Println(zauth.MaxOpenConn, zauth.MaxIdelConn, zauth.MaxLifetime)
 	db.SetMaxOpenConns(zauth.MaxOpenConn)
 	db.SetMaxIdleConns(zauth.MaxIdelConn)
 	db.SetConnMaxLifetime(zauth.MaxLifetime * time.Second)
@@ -46,20 +45,24 @@ func (m *mysql) Open(dbDSN string) error {
 }
 
 func (m *mysql) initDB() {
+	// create the users table, see zauth.CreateSqlStr for details
 	_, erro := m.db.Exec(zauth.CreateSqlStr)
 	if erro != nil {
 		panic("error init table: " + erro.Error())
 	}
 }
 
+// Register register a new user to the db
+//	it use bcrypt to cal and store the the password to db
+// Return Value:
+//	nil for success,or indicate the errro
 func (m *mysql) Register(info *zauth.UsrInfo) error {
-	btPswd, erro := util.CalPswd(util.String2Byte(info.Pswd.String))
+	btPswd, erro := util.CalPswd(util.String2Byte(info.Pswd))
 	if erro != nil {
 		return zauth.ErrorCalPwd
 	}
 
-	sqlStr := fmt.Sprintf("insert into users(name,pswd,phone,email,iv) values ('%s','%s','%s','%s','%s')", info.Name.String, util.Byte2String(btPswd), info.Phone.String, info.Email.String, info.IV.String)
-	fmt.Println(sqlStr)
+	sqlStr := fmt.Sprintf("insert into users(name,pswd,phone,email,iv) values ('%s','%s','%s','%s','%s')", info.Name, util.Byte2String(btPswd), info.Phone, info.Email, info.IV)
 	ret, erro := m.db.Exec(sqlStr)
 	if erro != nil {
 		return zauth.ErrorMysqlInsert
@@ -87,38 +90,41 @@ func (m *mysql) getSelSQL(info string, flag string) string {
 	return sql
 }
 
-// LogIn ...
+// LogIn get the user info, calc and compare the password
 func (m *mysql) LogIn(name, pwd, flag string) (*zauth.UsrInfo, error) {
 	u, erro := m.GetUsrInfo(name, flag)
 	if erro != nil {
 		return nil, erro
 	}
 
-	erro = util.ComparePswd(util.String2Byte(u.Pswd.String), util.String2Byte(pwd))
+	erro = util.ComparePswd(util.String2Byte(u.Pswd), util.String2Byte(pwd))
 	if erro != nil {
-		return nil, erro
+		return nil, zauth.ErrorCalPwd
 	}
 
 	return u, nil
 }
 
-// GetUsrInfo ...
+// GetUsrInfo get the user info accord to info 、 flag
 func (m *mysql) GetUsrInfo(info, flag string) (*zauth.UsrInfo, error) {
-	var u = new(zauth.UsrInfo)
-
-	var sql string
+	var s string
 	if flag == zauth.FlagName {
-		sql = fmt.Sprintf("select name,pswd,phone,email,other from users where name=?")
+		s = fmt.Sprintf("select name,pswd,phone,email,other from users where name=?")
 	} else if flag == zauth.FlagPhone {
-		sql = fmt.Sprintf("select name,pswd,phone,email,other from users where phone=?")
+		s = fmt.Sprintf("select name,pswd,phone,email,other from users where phone=?")
 	} else if flag == zauth.FlagEamil {
-		sql = fmt.Sprintf("select name,pswd,phone,email,other from users where email=?")
+		s = fmt.Sprintf("select name,pswd,phone,email,other from users where email=?")
 	}
 
-	row := m.db.QueryRow(sql, info)
-	erro := row.Scan(&u.Name, &u.Pswd, &u.Phone, &u.Email, &u.Other)
+	row := m.db.QueryRow(s, info)
+	var name, pswd, phone, email, other sql.NullString
+	erro := row.Scan(&name, &pswd, &phone, &email, &other)
 	if erro == nil {
-		return u, nil
+		return &zauth.UsrInfo{Name: name.String,
+			Pswd:  pswd.String,
+			Phone: phone.String,
+			Email: email.String,
+			Other: other.String}, nil
 	}
 
 	return nil, zauth.ErrorQuery
