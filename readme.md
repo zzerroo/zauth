@@ -1,6 +1,12 @@
 # Zauth
 
-zauth is a plug-in framework. currently it support cas based sso， include a mysql engine，redis or cache based session.
+zauth is a plug-in auth framework. currently it support cas based sso， include a mysql engine，redis or cache based session.
+
+details about cas based sso, see  [CAS-Protocol](https://apereo.github.io/cas/4.2.x/protocol/CAS-Protocol.html)
+
+currently zauth include a sso server、a client server、two pages(login、register). 
+
+<img src="/Users/zhangyuxin/code/go_workspace/src/zauth/login.png" alt="login" style="zoom: 33%;" /><img src="/Users/zhangyuxin/code/go_workspace/src/zauth/register.png" alt="register" style="zoom:33%;" />
 
 # Usage
 
