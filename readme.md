@@ -6,13 +6,13 @@ details about cas based sso, see  [CAS-Protocol](https://apereo.github.io/cas/4.
 
 currently zauth include a sso server、a client server、two pages(login、register). 
 
-<img src="/Users/zhangyuxin/code/go_workspace/src/zauth/login.png" alt="login" style="zoom: 33%;" /><img src="/Users/zhangyuxin/code/go_workspace/src/zauth/register.png" alt="register" style="zoom:33%;" />
+<img src="./login.png" alt="login" style="zoom: 33%;" /><img src="./register.png" alt="register" style="zoom:33%;" />
 
 # Usage
 
 ## Install
 
-go get glide get github.com/zzerroo/zauth
+go get github.com/zzerroo/zauth
 
 ## Example
 
