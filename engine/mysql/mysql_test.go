@@ -23,27 +23,27 @@ func TestAll(t *testing.T) {
 	}
 
 	var u1 zauth.UsrInfo
-	u1.Name.String = "test1"
-	u1.Pswd.String = "123456"
-	u1.Email.String = "test@xxx.com"
-	u1.Phone.String = "11111111111"
-	u1.Other.String = ""
+	u1.Name = "test1"
+	u1.Pswd = "123456"
+	u1.Email = "test@xxx.com"
+	u1.Phone = "11111111111"
+	u1.Other = ""
 	erro = mysql.Register(&u1)
 	if erro != nil {
 		t.Errorf("error register user")
 	}
 
-	_, erro = mysql.LogIn(u1.Name.String, u1.Pswd.String, "0")
+	_, erro = mysql.LogIn(u1.Name, u1.Pswd, "0")
 	if erro != nil {
 		t.Errorf("error login 0")
 	}
 
-	_, erro = mysql.LogIn(u1.Phone.String, u1.Pswd.String, "1")
+	_, erro = mysql.LogIn(u1.Phone, u1.Pswd, "1")
 	if erro != nil {
 		t.Errorf("error login 1")
 	}
 
-	_, erro = mysql.LogIn(u1.Email.String, u1.Pswd.String, "2")
+	_, erro = mysql.LogIn(u1.Email, u1.Pswd, "2")
 	if erro != nil {
 		t.Errorf("error login 2")
 	}
